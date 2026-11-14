@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Public Data Leak Monitor | OSINT Demo</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #121d30;
+      --panel2: #17243a;
+      --text: #edf4ff;
+      --muted: #9aabc4;
+      --line: #2a3a54;
+      --blue: #60a5fa;
+      --green: #34d399;
+      --red: #fb7185;
+      --amber: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; padding: 32px 16px;
+      background: radial-gradient(circle at top, #172b49 0, var(--bg) 48%);
+      color: var(--text); font-family: Arial, Helvetica, sans-serif;
+    }
+    .container { max-width: 900px; margin: auto; }
+    header { text-align: center; margin-bottom: 28px; }
+    .eyebrow { color: var(--blue); font-size: 12px; font-weight: 700; letter-spacing: 2px; }
+    h1 { margin: 10px 0 8px; font-size: clamp(27px, 5vw, 40px); }
+    .subtitle { color: var(--muted); line-height: 1.6; margin: 0 auto; max-width: 620px; }
+    .panel {
+      background: rgba(18, 29, 48, .96); border: 1px solid var(--line);
+      border-radius: 16px; padding: 24px; margin-bottom: 18px;
+      box-shadow: 0 18px 45px rgba(0,0,0,.18);
+    }
+    h2 { margin: 0 0 8px; font-size: 19px; }
+    .hint { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0 0 18px; }
+    label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+    .input-row { display: flex; gap: 10px; }
+    input {
+      flex: 1; min-width: 0; padding: 14px; border-radius: 9px;
+      border: 1px solid var(--line); background: #0c1728; color: var(--text);
+      font-size: 15px; outline: none;
+    }
+    input:focus { border-color: var(--blue); }
+    button {
+      border: 0; border-radius: 9px; padding: 0 20px; min-height: 48px;
+      color: #071426; background: var(--blue); font-weight: 700; cursor: pointer;
+    }
+    button:hover { filter: brightness(1.08); }
+    button:disabled { opacity: .65; cursor: wait; }
+    .notice {
+      margin-top: 16px; padding: 12px 14px; border-radius: 9px;
+      background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.28);
+      color: #f9d77c; font-size: 12px; line-height: 1.55;
+    }
+    #message { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 17px; }
+    #results { display: none; }
+    .result-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .status {
+      display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px;
+      border-radius: 30px; font-size: 12px; font-weight: 700;
+      background: rgba(251,191,36,.1); color: var(--amber);
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .result-email { color: var(--muted); font-size: 13px; margin: 12px 0 18px; overflow-wrap: anywhere; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+    .stat { padding: 15px; background: var(--panel2); border: 1px solid var(--line); border-radius: 11px; }
+    .stat strong { display: block; font-size: 23px; margin-bottom: 5px; }
+    .stat span { color: var(--muted); font-size: 12px; }
+    .breach {
+      padding: 17px; border: 1px solid var(--line); background: #0e192a;
+      border-radius: 11px; margin-top: 12px;
+    }
+    .breach h3 { margin: 0 0 6px; font-size: 16px; }
+    .meta { color: var(--muted); font-size: 12px; line-height: 1.7; }
+    .tags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+    .tag { font-size: 11px; padding: 6px 9px; border-radius: 20px; background: #20324d; color: #c6dcfa; }
+    .source { color: var(--muted); font-size: 12px; margin-top: 18px; }
+    .footer { text-align: center; color: #71839e; font-size: 11px; margin-top: 24px; line-height: 1.6; }
+    @media (max-width: 600px) {
+      .input-row { flex-direction: column; }
+      button { width: 100%; }
+      .stats { grid-template-columns: 1fr; }
+      .panel { padding: 19px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header>
+      <div class="eyebrow">OSINT • CYBERSECURITY DEMONSTRATION</div>
+      <h1>Public Data Leak Monitor</h1>
+      <p class="subtitle">A simple prototype that demonstrates how an authorized breach-information service could report publicly known data breaches linked to an email address.</p>
+    </header>
+
+    <section class="panel">
+      <h2>Check an email address</h2>
+      <p class="hint">For this classroom demo, enter an email address you own or are authorized to check. The prototype validates the format and then displays clearly labelled sample data.</p>
+      <form id="scanForm">
+        <label for="email">Email address</label>
+        <div class="input-row">
+          <input id="email" type="email" placeholder="you@example.com" autocomplete="off" required>
+          <button id="scanButton" type="submit">Run demo scan</button>
+        </div>
+        <div id="message" role="alert"></div>
+      </form>
+      <div class="notice"><strong>Demo mode:</strong> This page does not connect to Have I Been Pwned or any live database. All breach information below is fictional sample data. No email address is sent or saved.</div>
+    </section>
+
+    <section class="panel" id="results" aria-live="polite">
+      <div class="result-top">
+        <h2>Scan report</h2>
+        <span class="status"><span class="dot"></span> SIMULATED RESULT</span>
+      </div>
+      <p class="result-email" id="checkedEmail"></p>
+      <div class="stats">
+        <div class="stat"><strong id="breachCount">1</strong><span>Sample breaches</span></div>
+        <div class="stat"><strong>Demo</strong><span>Data source mode</span></div>
+        <div class="stat"><strong id="scanTime">—</strong><span>Check time</span></div>
+      </div>
+      <div class="breach">
+        <h3>Example Service</h3>
+        <div class="meta">Reported date: 2024-05-12<br>Domain: example.com<br>Record status: Fictional demonstration entry</div>
+        <div class="tags">
+          <span class="tag">Email addresses</span>
+          <span class="tag">Usernames</span>
+        </div>
+      </div>
+      <p class="source">Information source: fictional sample record for the project demo. A real version would retrieve breach metadata from an authorized service such as Have I Been Pwned, with the required API access.</p>
+    </section>
+
+    <div class="footer">
+      Public Data Leak Monitor • OSINT Stage 2 prototype concept<br>
+      Responsible use: only check addresses you own or are authorized to investigate. Never display leaked passwords or private records.
+    </div>
+  </main>
+
+  <script>
+    const form = document.getElementById("scanForm");
+    const emailInput = document.getElementById("email");
+    const button = document.getElementById("scanButton");
+    const message = document.getElementById("message");
+    const results = document.getElementById("results");
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      const email = emailInput.value.trim();
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        message.textContent = "Please enter a valid email address.";
+        results.style.display = "none";
+        return;
+      }
+
+      message.textContent = "";
+      button.disabled = true;
+      button.textContent = "Checking...";
+
+      // Simulates a short API request for demonstration purposes only.
+      setTimeout(function () {
+        document.getElementById("checkedEmail").textContent = "Email checked: " + email;
+        document.getElementById("scanTime").textContent =
+          new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        results.style.display = "block";
+        button.disabled = false;
+        button.textContent = "Run demo scan";
+        results.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 650);
+    });
+  </script>
+</body>
+</html>
